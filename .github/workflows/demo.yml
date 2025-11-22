@@ -24,6 +24,8 @@ jobs:
   build:
     needs: test
     runs-on: ubuntu-latest
+    outputs:
+      script-file: ${{ steps.publish-js-filename.outputs.script-file }}
     steps:
       - name: Get code
         uses: actions/checkout@v3
@@ -33,15 +35,25 @@ jobs:
 
       - name: Build website
         run: npm run build
-
+      - name: Publish JS filename
+        id: publish-js-filename
+        run: |
+          # find the first .js file in dist/assets and set it as a step output
+          JS_FILE=$(find dist/assets -type f -name '*.js' -print -quit)
+          if [ -n "$JS_FILE" ]; then
+            echo "script-file=$(basename "$JS_FILE")" >> "$GITHUB_OUTPUT"
+          else
+            echo "No JS file found in dist/assets" >&2
+            echo "script-file=" >> "$GITHUB_OUTPUT"
+          fi
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: dist-files
-          path: |
-            dist/
-            package.json
-
+          path: dist
+          # path: |
+          #   dist/
+          #   package.json
   deploy:
     needs: build
     runs-on: ubuntu-latest
@@ -54,5 +66,7 @@ jobs:
       - name: List files
         run: ls -R
 
+      - name: Output JS filename
+        run: echo "JS filename is ${{ needs.build.outputs.script-file }}" 
       - name: Deploy
         run: echo "Deploying..."
